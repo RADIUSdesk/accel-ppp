@@ -42,6 +42,7 @@ char conf_dm_coa_bind_device[IFNAMSIZ];
 unsigned int conf_dm_coa_bind_default;
 
 int conf_sid_in_auth;
+int conf_nas_port_id_in_req = 1;
 int conf_require_nas_ident;
 int conf_acct_interim_interval;
 int conf_acct_interim_jitter;
@@ -55,6 +56,8 @@ static int conf_default_realm_len;
 static int conf_strip_realm;
 
 const char *conf_attr_tunnel_type;
+
+int conf_acct_delay_start;
 
 static LIST_HEAD(sessions);
 static pthread_rwlock_t sessions_lock = PTHREAD_RWLOCK_INITIALIZER;
@@ -696,6 +699,9 @@ static void ses_finishing(struct ap_session *ses)
 
 	if (rpd->acct_started || rpd->acct_req)
 	    rad_acct_stop(rpd);
+
+	if (rpd->acct_interim_timer.tpd)
+		triton_timer_del(&rpd->acct_interim_timer);
 }
 
 static void ses_finished(struct ap_session *ses)
@@ -1069,6 +1075,16 @@ static int load_config(void)
 	opt = conf_get_opt("radius", "strip-realm");
 	if (opt && atoi(opt) >= 0)
 		conf_strip_realm = atoi(opt) > 0;
+
+	opt = conf_get_opt("radius", "nas-port-id-in-req");
+	if (opt)
+		conf_nas_port_id_in_req = atoi(opt);
+
+	opt = conf_get_opt("radius", "acct-delay-start");
+	if (opt)
+		conf_acct_delay_start = atoi(opt);
+	else
+		conf_acct_delay_start = 0;
 
 	return 0;
 }

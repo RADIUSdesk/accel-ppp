@@ -135,7 +135,11 @@ static struct list_head ipoe_list1_u[IPOE_HASH_BITS + 1];
 static struct list_head ipoe_excl_list[IPOE_HASH_BITS + 1];
 static LIST_HEAD(ipoe_list2);
 static LIST_HEAD(ipoe_list2_u);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,4,0)
 static DEFINE_SEMAPHORE(ipoe_wlock);
+#else
+static DEFINE_SEMAPHORE(ipoe_wlock,1);
+#endif
 static LIST_HEAD(ipoe_interfaces);
 static LIST_HEAD(ipoe_networks);
 static struct work_struct ipoe_queue_work;
@@ -166,8 +170,13 @@ static struct genl_multicast_group ipoe_nl_mcg;
 #endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0) || RHEL_MAJOR == 7
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,3,0)
+#define u64_stats_fetch_begin_bh u64_stats_fetch_begin
+#define u64_stats_fetch_retry_bh u64_stats_fetch_retry
+#else
 #define u64_stats_fetch_begin_bh u64_stats_fetch_begin_irq
 #define u64_stats_fetch_retry_bh u64_stats_fetch_retry_irq
+#endif
 #endif
 
 #ifndef NETIF_F_HW_VLAN_FILTER
@@ -1154,7 +1163,11 @@ static int ipoe_create(__be32 peer_addr, __be32 addr, __be32 gw, int ifindex, co
 
 	if (link_dev) {
 		dev->features = link_dev->features & ~(NETIF_F_HW_VLAN_FILTER | NETIF_F_LRO);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0)
+		dev_addr_mod(dev, 0, link_dev->dev_addr, ETH_ALEN);
+#else
 		memcpy(dev->dev_addr, link_dev->dev_addr, ETH_ALEN);
+#endif
 		memcpy(dev->broadcast, link_dev->broadcast, ETH_ALEN);
 	}
 
@@ -1446,7 +1459,11 @@ static int ipoe_nl_cmd_modify(struct sk_buff *skb, struct genl_info *info)
 
 		if (link_dev) {
 			ses->dev->features = link_dev->features & ~(NETIF_F_HW_VLAN_FILTER | NETIF_F_LRO);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0)
+			dev_addr_mod(dev, 0, link_dev->dev_addr, ETH_ALEN);
+#else
 			memcpy(dev->dev_addr, link_dev->dev_addr, ETH_ALEN);
+#endif
 			memcpy(dev->broadcast, link_dev->broadcast, ETH_ALEN);
 		}
 	}
@@ -1867,6 +1884,9 @@ static struct genl_family ipoe_nl_family = {
 #endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,2,0)
 	.policy = ipoe_nl_policy,
+#endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,1,0)
+	.resv_start_op = CTRL_CMD_GETPOLICY + 1,
 #endif
 };
 

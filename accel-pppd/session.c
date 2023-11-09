@@ -35,6 +35,7 @@ static int conf_single_session = -1;
 static int conf_single_session_ignore_case;
 static int conf_sid_source;
 static int conf_seq_save_timeout = 10;
+static int conf_session_timeout;
 static const char *conf_seq_file;
 int __export conf_max_sessions;
 int __export conf_max_starting;
@@ -71,7 +72,7 @@ void __export ap_session_init(struct ap_session *ses)
 
 void __export ap_session_set_ifindex(struct ap_session *ses)
 {
-	struct rtnl_link_stats stats;
+	struct rtnl_link_stats64 stats;
 
 	if (iplink_get_stats(ses->ifindex, &stats))
 		log_ppp_warn("failed to get interface statistics\n");
@@ -82,8 +83,6 @@ void __export ap_session_set_ifindex(struct ap_session *ses)
 		ses->acct_tx_bytes_i = stats.tx_bytes;
 		ses->acct_rx_bytes = 0;
 		ses->acct_tx_bytes = 0;
-		ses->acct_input_gigawords = 0;
-		ses->acct_output_gigawords = 0;
 	}
 }
 
@@ -151,6 +150,9 @@ void __export ap_session_activate(struct ap_session *ses)
 	ses->state = AP_STATE_ACTIVE;
 	__sync_sub_and_fetch(&ap_session_stat.starting, 1);
 	__sync_add_and_fetch(&ap_session_stat.active, 1);
+
+	if (!ses->session_timeout && conf_session_timeout)
+		ses->session_timeout = conf_session_timeout;
 
 	if (ses->idle_timeout) {
 		ses->timer.expire = ap_session_timer;
@@ -376,9 +378,9 @@ static void generate_sessionid(struct ap_session *ses)
 	}
 }
 
-int __export ap_session_read_stats(struct ap_session *ses, struct rtnl_link_stats *stats)
+int __export ap_session_read_stats(struct ap_session *ses, struct rtnl_link_stats64 *stats)
 {
-	struct rtnl_link_stats lstats;
+	struct rtnl_link_stats64 lstats;
 
 	if (ses->ifindex == -1)
 		return -1;
@@ -399,12 +401,9 @@ int __export ap_session_read_stats(struct ap_session *ses, struct rtnl_link_stat
 	if (stats->rx_bytes != ses->acct_rx_bytes)
 		ses->idle_time = _time();
 
-	if (stats->rx_bytes < ses->acct_rx_bytes)
-		ses->acct_input_gigawords++;
+	ses->acct_rx_packets = stats->rx_packets;
+	ses->acct_tx_packets = stats->tx_packets;
 	ses->acct_rx_bytes = stats->rx_bytes;
-
-	if (stats->tx_bytes < ses->acct_tx_bytes)
-		ses->acct_output_gigawords++;
 	ses->acct_tx_bytes = stats->tx_bytes;
 
 	return 0;
@@ -547,6 +546,12 @@ static void load_config(void)
 		conf_max_starting = atoi(opt);
 	else
 		conf_max_starting = 0;
+
+	opt = conf_get_opt("common", "session-timeout");
+	if (opt)
+		conf_session_timeout = atoi(opt);
+	else
+		conf_session_timeout = 0;
 }
 
 static void init(void)

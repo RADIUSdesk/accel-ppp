@@ -185,6 +185,7 @@ extern char *conf_dm_coa_secret;
 extern char conf_dm_coa_bind_device[IFNAMSIZ];
 extern unsigned int conf_dm_coa_bind_default;
 extern int conf_sid_in_auth;
+extern int conf_nas_port_id_in_req;
 extern int conf_require_nas_ident;
 extern in_addr_t conf_dm_coa_server;
 extern int conf_dm_coa_port;
@@ -192,6 +193,7 @@ extern int conf_acct_interim_interval;
 extern int conf_acct_interim_jitter;
 extern int conf_accounting;
 extern const char *conf_attr_tunnel_type;
+extern int conf_acct_delay_start;
 
 int rad_check_nas_pack(struct rad_packet_t *pack);
 struct radius_pd_t *rad_find_session(const char *sessionid, const char *username, const char *port_id, int port, in_addr_t ipaddr, const char *csid);

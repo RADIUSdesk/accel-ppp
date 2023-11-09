@@ -127,6 +127,7 @@ unsigned long stat_filtered;
 pthread_rwlock_t serv_lock = PTHREAD_RWLOCK_INITIALIZER;
 LIST_HEAD(serv_list);
 static int connlimit_loaded;
+static int conf_session_timeout;
 
 static pthread_mutex_t sid_lock = PTHREAD_MUTEX_INITIALIZER;
 static unsigned long *sid_map;
@@ -200,6 +201,7 @@ static void disconnect(struct pppoe_conn_t *conn)
 	sid_map[conn->sid/(8*sizeof(long))] |= 1 << (conn->sid % (8*sizeof(long)));
 	pthread_mutex_unlock(&sid_lock);
 
+	_free(conn->ctrl.service_name);
 	_free(conn->ctrl.calling_station_id);
 	_free(conn->ctrl.called_station_id);
 	_free(conn->service_name);
@@ -388,6 +390,12 @@ static struct pppoe_conn_t *allocate_channel(struct pppoe_serv_t *serv, const ui
 
 	conn->ctrl.calling_station_id = _malloc(IFNAMSIZ + 19);
 
+	conn->ctrl.service_name = _malloc(256);
+	memset(conn->ctrl.service_name, 0x0, 256);
+
+	if (service_name && ntohs(service_name->tag_len) < 256 && ntohs(service_name->tag_len) > 0)
+		memcpy(conn->ctrl.service_name, service_name->tag_data, ntohs(service_name->tag_len));
+
 	if (conf_ifname_in_sid == 1 || conf_ifname_in_sid == 3)
 		if (conf_sid_uppercase)
 		    sprintf(conn->ctrl.calling_station_id, "%s:%02X:%02X:%02X:%02X:%02X:%02X", serv->ifname,
@@ -417,6 +425,8 @@ static struct pppoe_conn_t *allocate_channel(struct pppoe_serv_t *serv, const ui
 		conn->ppp.ses.dpv6_pool_name = _strdup(conf_dpv6_pool);
 	if (conf_ifname)
 		conn->ppp.ses.ifname_rename = _strdup(conf_ifname);
+	if (conf_session_timeout)
+		conn->ppp.ses.session_timeout = conf_session_timeout;
 
 	triton_context_register(&conn->ctx, conn);
 
@@ -430,6 +440,8 @@ static struct pppoe_conn_t *allocate_channel(struct pppoe_serv_t *serv, const ui
 	return conn;
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Waddress-of-packed-member"
 static void connect_channel(struct pppoe_conn_t *conn)
 {
 	int sock;
@@ -483,6 +495,7 @@ out_err_close:
 out_err:
 	disconnect(conn);
 }
+#pragma GCC diagnostic pop
 
 static struct pppoe_conn_t *find_channel(struct pppoe_serv_t *serv, const uint8_t *cookie)
 {
@@ -1424,7 +1437,7 @@ static void __pppoe_server_start(const char *ifname, const char *opt, void *cli,
 	struct pppoe_serv_t *serv;
 	struct ifreq ifr;
 	int padi_limit = conf_padi_limit;
-	struct ap_net *net = def_net;
+	net = def_net;
 
 	if (parse_server(opt, &padi_limit, &net)) {
 		if (cli)
@@ -2027,6 +2040,11 @@ static void load_config(void)
 	else
 		conf_cookie_timeout = 5;
 
+	opt = conf_get_opt("pppoe", "session-timeout");
+	if (opt)
+		conf_session_timeout = atoi(opt);
+	else
+		conf_session_timeout = 0;
 
 	conf_mppe = MPPE_UNSET;
 	opt = conf_get_opt("pppoe", "mppe");
