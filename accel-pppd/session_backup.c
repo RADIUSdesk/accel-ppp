@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <netinet/in.h>
 
+#include "pthread.h"
 #include "events.h"
 #include "triton.h"
 #include "log.h"

@@ -1,9 +1,5 @@
 cmake_minimum_required(VERSION 2.6)
 
-if (CMAKE_BINARY_DIR STREQUAL CMAKE_HOME_DIRECTORY)
-    message(FATAL_ERROR "Building in source directory is forbidden. Please make separated build directory.")
-endif ()
-
 project(accel-ppp C)
 
 SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -fno-strict-aliasing -D_GNU_SOURCE -fPIC -rdynamic -Wno-unused-result")
