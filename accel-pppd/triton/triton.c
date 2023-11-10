@@ -138,7 +138,7 @@ static void* triton_thread(struct _triton_thread_t *thread)
 				asm volatile("" :: "m" (stack));
 
 				memcpy(thread_frame - thread->ctx->uc->uc_stack.ss_size, thread->ctx->uc->uc_stack.ss_sp, thread->ctx->uc->uc_stack.ss_size);
-				setcontext(thread->ctx->uc);
+				//setcontext(thread->ctx->uc); //Dirk remove this for now to test
 				abort();
 			} else {
 				log_debug2("thread: %p: dequeued ctx %p\n", thread, thread->ctx);
