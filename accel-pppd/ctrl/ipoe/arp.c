@@ -13,7 +13,6 @@
 #include <netinet/ip.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
-#include <net/if_arp.h>
 #include <linux/if_packet.h>
 
 #include "list.h"
