@@ -125,9 +125,9 @@ struct ap_session
 
 struct ap_session_stat
 {
-	unsigned int active;
-	unsigned int starting;
-	unsigned int finishing;
+	uint32_t active;
+	uint32_t starting;
+	uint32_t finishing;
 };
 
 
